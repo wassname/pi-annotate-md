@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -75,6 +76,67 @@ test("first long message asks once, saves only with consent, and remembers the a
 				assert.equal(prompts, 2);
 				resolveConfirmation(false);
 				await newSession;
+			} finally {
+				if (previousJournal === undefined) delete process.env.PI_ANNOTATE_JOURNAL;
+				else process.env.PI_ANNOTATE_JOURNAL = previousJournal;
+				rmSync(directory, { recursive: true, force: true });
+			}
+		});
+	}
+});
+
+test("gitignore is a separate opt-in and ignores only the journal", async (t) => {
+	for (const scenario of ["accept", "decline", "already ignored", "outside repository", "headless", "symlink cwd"]) {
+		await t.test(scenario, async () => {
+			const directory = mkdtempSync(join(tmpdir(), "pi-annotate-ignore-"));
+			const repo = join(directory, "repo");
+			mkdirSync(repo);
+			execFileSync("git", ["init", "--quiet", repo]);
+			const ignorePath = join(repo, ".gitignore");
+			const existing = scenario === "already ignored" ? "/notes/\n" : "other-file";
+			writeFileSync(ignorePath, existing);
+			let cwd = repo;
+			if (scenario === "symlink cwd") {
+				cwd = join(directory, "alias");
+				symlinkSync(repo, cwd, "dir");
+			}
+			const journalPath = scenario === "outside repository" ? join(directory, "outside.md") : join(cwd, "notes", "journal[1].md");
+			const previousJournal = process.env.PI_ANNOTATE_JOURNAL;
+			process.env.PI_ANNOTATE_JOURNAL = journalPath;
+			try {
+				const session = SessionManager.inMemory(cwd);
+				const extension = loadExtension(() => session, cwd);
+				let ignorePrompts = 0;
+				const ctx = {
+					...extension.ctx,
+					hasUI: scenario !== "headless",
+					ui: {
+						...extension.ctx.ui,
+						confirm: async (title: string, message: string) => {
+							if (title === "Automatically save long user messages?") return true;
+							assert.match(title, /gitignore/);
+							assert.ok(message.includes(ignorePath));
+							ignorePrompts += 1;
+							assert.equal(readFileSync(ignorePath, "utf8"), existing);
+							return scenario !== "decline";
+						},
+					},
+				};
+				if (scenario === "accept") await extension.input({ text: "first\nlong\nmessage", source: "interactive" }, ctx);
+				else await extension.commands.get("annotate-settings")!.handler("auto on", ctx);
+				const shouldAsk = ["accept", "decline", "symlink cwd"].includes(scenario);
+				assert.equal(ignorePrompts, shouldAsk ? 1 : 0);
+				const shouldAppend = scenario === "accept" || scenario === "symlink cwd";
+				assert.equal(readFileSync(ignorePath, "utf8"), shouldAppend ? `${existing}\n/notes/journal\\[1\\].md\n` : existing);
+				if (shouldAppend) {
+					assert.equal(spawnSync("git", ["-C", repo, "check-ignore", "--quiet", "--", "notes/journal[1].md"]).status, 0);
+					assert.equal(spawnSync("git", ["-C", repo, "check-ignore", "--quiet", "--", "notes/journal1.md"]).status, 1);
+					await extension.commands.get("annotate-settings")!.handler("auto on", ctx);
+					assert.equal(ignorePrompts, 1);
+				}
+				await extension.input({ text: "next\nlong\nmessage", source: "interactive" }, ctx);
+				assert.equal(ignorePrompts, shouldAsk ? 1 : 0);
+				assert.equal(existsSync(journalPath), true);
 			} finally {
 				if (previousJournal === undefined) delete process.env.PI_ANNOTATE_JOURNAL;
 				else process.env.PI_ANNOTATE_JOURNAL = previousJournal;

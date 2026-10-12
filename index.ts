@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, SessionEntry } from "@earendil-works/pi-coding-agent";
-import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { execFileSync, spawnSync } from "node:child_process";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import {
 	buildAnnotationTemplate,
 	buildUserMessageRecord,
@@ -92,6 +92,35 @@ function appendJournal(path: string, record: string): void {
 	appendFileSync(path, `${separator}${record}`, "utf8");
 }
 
+async function offerGitignore(ctx: ExtensionContext): Promise<void> {
+	if (!ctx.hasUI) return;
+	const root = spawnSync("git", ["-C", ctx.cwd, "rev-parse", "--show-toplevel"], { encoding: "utf8" });
+	if (root.error) throw root.error;
+	if (root.status === 128 && root.stderr.includes("not a git repository")) return;
+	if (root.status !== 0) throw new Error(root.stderr);
+	const path = journalPath(ctx);
+	let ancestor = path;
+	while (!existsSync(ancestor)) ancestor = dirname(ancestor);
+	const canonicalPath = resolve(realpathSync(ancestor), relative(ancestor, path));
+	const repoRoot = root.stdout.trim();
+	const repoPath = relative(repoRoot, canonicalPath);
+	if (repoPath === ".." || repoPath.startsWith("../") || isAbsolute(repoPath)) return;
+	const ignored = spawnSync("git", ["-C", repoRoot, "check-ignore", "--quiet", "--", repoPath]);
+	if (ignored.error) throw ignored.error;
+	if (ignored.status === 0) return;
+	if (ignored.status !== 1) throw new Error(ignored.stderr.toString());
+	const accepted = await ctx.ui.confirm(
+		"Add the journal to .gitignore?",
+		`Add ${repoPath} to ${resolve(repoRoot, ".gitignore")}? This keeps untracked saved messages out of Git commits. Already tracked files remain tracked.`,
+	);
+	if (!accepted) return;
+	const ignorePath = resolve(repoRoot, ".gitignore");
+	const existing = existsSync(ignorePath) ? readFileSync(ignorePath, "utf8") : "";
+	const pattern = "/" + repoPath.replace(/[\\*?\[\] ]/g, "\\$&");
+	appendFileSync(ignorePath, `${existing && !existing.endsWith("\n") ? "\n" : ""}${pattern}\n`, "utf8");
+	ctx.ui.notify(`Added ${repoPath} to ${ignorePath}.`, "info");
+}
+
 interface AnnotateSettings {
 	sessionId: string;
 	autoAnnotate: boolean;
@@ -128,6 +157,7 @@ export default function (pi: ExtensionAPI) {
 				sessionId: ctx.sessionManager.getSessionId(),
 				autoAnnotate: accepted,
 			} satisfies AnnotateSettings);
+			if (accepted) await offerGitignore(ctx);
 		}
 		if (!autoAnnotateEnabled(ctx)) return { action: "continue" };
 		const metadata: UserMessageRecordMetadata = {
@@ -171,6 +201,7 @@ export default function (pi: ExtensionAPI) {
 					autoAnnotate: choice === "auto on",
 				} satisfies AnnotateSettings);
 				ctx.ui.notify(`Auto-annotate ${choice === "auto on" ? "on" : "off"} (saved for this session).`, "info");
+				if (choice === "auto on") await offerGitignore(ctx);
 			} catch (error) {
 				ctx.ui.notify(`Could not save annotation settings: ${error instanceof Error ? error.message : String(error)}`, "error");
 			}

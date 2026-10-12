@@ -7,6 +7,12 @@
 
 Verification: `slop/verification.log` contains the typecheck and test output: `tests 15`, `pass 15`, `fail 0`. The user also reported: “it owrked”.
 
+## Optional Git ignore rule
+
+Enabling recording now asks whether to add the journal to the repository's `.gitignore`. This also works through `/annotate-settings auto on` for a session that already has recording enabled. Declining changes no ignore rules. Already ignored journals, paths outside the repository, and sessions without a UI do not prompt. Tracked files are not removed from Git.
+
+Verification: `slop/gitignore-verification.log` contains `tests 22`, `pass 22`, `fail 0`. Regression cases cover acceptance, refusal, existing ignore rules, outside paths, headless mode, and symlinked working directories. Git itself confirms that the escaped rule ignores the exact journal filename, not similarly named files.
+
 ## Separate scheduler reload error
 
 User reported `coordination.runInBackground is not a function` from the scheduler inside `pi-goals`.
