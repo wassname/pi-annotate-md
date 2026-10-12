@@ -60,6 +60,7 @@ test("first long message asks once, saves only with consent, and remembers the a
 				assert.equal(existsSync(journalPath), false);
 				resolveConfirmation(accepted);
 				assert.deepEqual(await pending, { action: "continue" });
+				assert.ok(extension.notifications.some(message => message.includes(`Auto-saving ${accepted ? "on" : "off"}`) && message.includes("/annotate-settings")));
 				assert.equal(existsSync(journalPath), accepted);
 				const reloaded = loadExtension(() => session, directory);
 				await reloaded.input({ text: "second\nlong\nmessage", source: "interactive" }, { ...reloaded.ctx, ui });
@@ -86,7 +87,7 @@ test("first long message asks once, saves only with consent, and remembers the a
 });
 
 test("gitignore is a separate opt-in and ignores only the journal", async (t) => {
-	for (const scenario of ["accept", "decline", "already ignored", "outside repository", "headless", "symlink cwd"]) {
+	for (const scenario of ["accept", "decline", "cancel", "already ignored", "outside repository", "headless", "symlink cwd"]) {
 		await t.test(scenario, async () => {
 			const directory = mkdtempSync(join(tmpdir(), "pi-annotate-ignore-"));
 			const repo = join(directory, "repo");
@@ -112,22 +113,33 @@ test("gitignore is a separate opt-in and ignores only the journal", async (t) =>
 					hasUI: scenario !== "headless",
 					ui: {
 						...extension.ctx.ui,
-						confirm: async (title: string, message: string) => {
-							if (title === "Automatically save long user messages?") return true;
-							assert.match(title, /gitignore/);
-							assert.ok(message.includes(ignorePath));
+						confirm: async () => true,
+						select: async (title: string, options: string[]) => {
+							assert.ok(title.includes(ignorePath));
+							assert.deepEqual(options, ["Ignore journal (default)", "Keep journal visible to Git"]);
 							ignorePrompts += 1;
 							assert.equal(readFileSync(ignorePath, "utf8"), existing);
-							return scenario !== "decline";
+							return scenario === "cancel" ? undefined : options[scenario === "decline" ? 1 : 0];
 						},
 					},
 				};
 				if (scenario === "accept") await extension.input({ text: "first\nlong\nmessage", source: "interactive" }, ctx);
 				else await extension.commands.get("annotate-settings")!.handler("auto on", ctx);
-				const shouldAsk = ["accept", "decline", "symlink cwd"].includes(scenario);
+				const shouldAsk = ["accept", "decline", "cancel", "symlink cwd"].includes(scenario);
 				assert.equal(ignorePrompts, shouldAsk ? 1 : 0);
 				const shouldAppend = scenario === "accept" || scenario === "symlink cwd";
 				assert.equal(readFileSync(ignorePath, "utf8"), shouldAppend ? `${existing}\n/notes/journal\\[1\\].md\n` : existing);
+				const choices = session.getEntries().filter(entry => entry.type === "custom" && entry.customType === "pi-annotate-gitignore");
+				assert.equal(choices.length, shouldAsk ? 1 : 0);
+				if (shouldAsk) {
+					const choice = choices[0];
+					assert.equal(choice.type, "custom");
+					assert.deepEqual((choice as any).data, {
+						sessionId: session.getSessionId(), journalPath, gitignorePath: ignorePath,
+						choice: scenario === "cancel" ? "cancelled" : scenario === "decline" ? "Keep journal visible to Git" : "Ignore journal (default)",
+					});
+					assert.ok(extension.notifications.some(message => message.includes(shouldAppend ? "Journal added to .gitignore" : ".gitignore unchanged") && message.includes(shouldAppend ? "To undo" : "/annotate-settings")));
+				}
 				if (shouldAppend) {
 					assert.equal(spawnSync("git", ["-C", repo, "check-ignore", "--quiet", "--", "notes/journal[1].md"]).status, 0);
 					assert.equal(spawnSync("git", ["-C", repo, "check-ignore", "--quiet", "--", "notes/journal1.md"]).status, 1);
@@ -159,7 +171,7 @@ test("records only long unquoted input when enabled for this session", async () 
 		const { commands, input, notifications, ctx } = loadExtension(() => session, directory);
 		await input({ text: "default\noff\nplease", source: "interactive" }, ctx);
 		assert.equal(existsSync(journalPath), false);
-		assert.deepEqual(notifications, []);
+		assert.deepEqual(notifications, ["Auto-saving off (this session). Change: /annotate-settings auto on."]);
 		const command = commands.get("annotate-settings")!;
 		await command.handler("auto on", ctx);
 		notifications.length = 0;

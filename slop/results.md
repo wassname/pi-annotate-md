@@ -9,9 +9,11 @@ Verification: `slop/verification.log` contains the typecheck and test output: `t
 
 ## Optional Git ignore rule
 
-Enabling recording now asks whether to add the journal to the repository's `.gitignore`. This also works through `/annotate-settings auto on` for a session that already has recording enabled. Declining changes no ignore rules. Already ignored journals, paths outside the repository, and sessions without a UI do not prompt. Tracked files are not removed from Git.
+Enabling recording asks whether to add the journal to the repository's `.gitignore`. `Ignore journal` is selected first; Enter confirms and Esc changes no ignore rules. This also works through `/annotate-settings auto on` for an already-enabled session. Already ignored journals, paths outside the repository, and sessions without a UI do not prompt. Tracked files are not removed from Git.
 
-Verification: `slop/gitignore-verification.log` contains `tests 22`, `pass 22`, `fail 0`. Regression cases cover acceptance, refusal, existing ignore rules, outside paths, headless mode, and symlinked working directories. Git itself confirms that the escaped rule ignores the exact journal filename, not similarly named files.
+Saving and ignore choices show an info notification with a change or undo instruction. Saving choices remain in `pi-annotate-settings` entries; ignore choices, including cancellation, are saved as `pi-annotate-gitignore` entries with the session ID and affected paths. Pi timestamps both kinds of session entry.
+
+Verification: `slop/gitignore-verification.log` contains `tests 23`, `pass 23`, `fail 0`. Regression cases cover acceptance, refusal, cancellation, existing ignore rules, outside paths, headless mode, and symlinked working directories. They also check the default option, info receipts, and persisted choice records. Git itself confirms that the escaped rule ignores the exact journal filename, not similarly named files.
 
 ## Separate scheduler reload error
 

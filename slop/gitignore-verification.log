@@ -10,35 +10,36 @@
 > @wassname2/pi-annotated-journal@0.1.1 test
 > node --experimental-strip-types --test tests/*.test.ts
 
-✔ quoteMarkdown quotes every source line, including blanks and existing quotes (0.845723ms)
-✔ template is only one heading and quoted messages separated by a rule (0.202391ms)
-✔ extractAnnotations returns unquoted blocks with message and line anchors (2.871138ms)
-✔ heading and separators are not annotations (0.153289ms)
-✔ changed separators fail instead of silently losing annotation anchors (0.40853ms)
-✔ user-message records preserve source text as a quote (0.303843ms)
-✔ journal records retain metadata and parsed annotations (1.138384ms)
-✔ source text that resembles journal markers cannot truncate a record (3.484923ms)
-✔ prompt is exactly the edited transcript (0.385276ms)
-✔ exporter combines user messages and anchored journal annotations (58.892085ms)
+✔ quoteMarkdown quotes every source line, including blanks and existing quotes (0.878354ms)
+✔ template is only one heading and quoted messages separated by a rule (0.227278ms)
+✔ extractAnnotations returns unquoted blocks with message and line anchors (0.97215ms)
+✔ heading and separators are not annotations (0.161874ms)
+✔ changed separators fail instead of silently losing annotation anchors (0.404422ms)
+✔ user-message records preserve source text as a quote (0.310154ms)
+✔ journal records retain metadata and parsed annotations (1.129376ms)
+✔ source text that resembles journal markers cannot truncate a record (0.207931ms)
+✔ prompt is exactly the edited transcript (0.231896ms)
+✔ exporter combines user messages and anchored journal annotations (134.289067ms)
 ▶ first long message asks once, saves only with consent, and remembers the answer after reload
-  ✔ accept (18.330713ms)
-  ✔ decline or dismiss (0.672527ms)
-✔ first long message asks once, saves only with consent, and remembers the answer after reload (19.915058ms)
+  ✔ accept (15.144742ms)
+  ✔ decline or dismiss (0.625668ms)
+✔ first long message asks once, saves only with consent, and remembers the answer after reload (16.845074ms)
 ▶ gitignore is a separate opt-in and ignores only the journal
-  ✔ accept (37.811894ms)
-  ✔ decline (14.951119ms)
-  ✔ already ignored (14.080969ms)
-  ✔ outside repository (9.511764ms)
-  ✔ headless (6.414641ms)
-  ✔ symlink cwd (26.626217ms)
-✔ gitignore is a separate opt-in and ignores only the journal (110.6641ms)
-✔ records only long unquoted input when enabled for this session (8.397625ms)
-✔ session preference survives resume and tree navigation without enabling another session or fork (9.952334ms)
-ℹ tests 22
+  ✔ accept (51.808098ms)
+  ✔ decline (20.378478ms)
+  ✔ cancel (21.493658ms)
+  ✔ already ignored (16.714308ms)
+  ✔ outside repository (10.356063ms)
+  ✔ headless (6.026489ms)
+  ✔ symlink cwd (31.62061ms)
+✔ gitignore is a separate opt-in and ignores only the journal (160.2112ms)
+✔ records only long unquoted input when enabled for this session (7.887484ms)
+✔ session preference survives resume and tree navigation without enabling another session or fork (11.824159ms)
+ℹ tests 23
 ℹ suites 0
-ℹ pass 22
+ℹ pass 23
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 8816.402453
+ℹ duration_ms 158849.265714

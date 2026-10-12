@@ -92,7 +92,7 @@ function appendJournal(path: string, record: string): void {
 	appendFileSync(path, `${separator}${record}`, "utf8");
 }
 
-async function offerGitignore(ctx: ExtensionContext): Promise<void> {
+async function offerGitignore(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
 	if (!ctx.hasUI) return;
 	const root = spawnSync("git", ["-C", ctx.cwd, "rev-parse", "--show-toplevel"], { encoding: "utf8" });
 	if (root.error) throw root.error;
@@ -107,18 +107,31 @@ async function offerGitignore(ctx: ExtensionContext): Promise<void> {
 	if (repoPath === ".." || repoPath.startsWith("../") || isAbsolute(repoPath)) return;
 	const ignored = spawnSync("git", ["-C", repoRoot, "check-ignore", "--quiet", "--", repoPath]);
 	if (ignored.error) throw ignored.error;
-	if (ignored.status === 0) return;
+	if (ignored.status === 0) {
+		ctx.ui.notify(`Journal already ignored by Git: ${repoPath}.`, "info");
+		return;
+	}
 	if (ignored.status !== 1) throw new Error(ignored.stderr.toString());
-	const accepted = await ctx.ui.confirm(
-		"Add the journal to .gitignore?",
-		`Add ${repoPath} to ${resolve(repoRoot, ".gitignore")}? This keeps untracked saved messages out of Git commits. Already tracked files remain tracked.`,
-	);
-	if (!accepted) return;
 	const ignorePath = resolve(repoRoot, ".gitignore");
-	const existing = existsSync(ignorePath) ? readFileSync(ignorePath, "utf8") : "";
-	const pattern = "/" + repoPath.replace(/[\\*?\[\] ]/g, "\\$&");
-	appendFileSync(ignorePath, `${existing && !existing.endsWith("\n") ? "\n" : ""}${pattern}\n`, "utf8");
-	ctx.ui.notify(`Added ${repoPath} to ${ignorePath}.`, "info");
+	const options = ["Ignore journal (default)", "Keep journal visible to Git"];
+	const choice = await ctx.ui.select(
+		`Add ${repoPath} to ${ignorePath}?\nAlready tracked files remain tracked. Esc leaves .gitignore unchanged.`,
+		options,
+	);
+	if (choice === options[0]) {
+		const existing = existsSync(ignorePath) ? readFileSync(ignorePath, "utf8") : "";
+		const pattern = "/" + repoPath.replace(/[\\*?\[\] ]/g, "\\$&");
+		appendFileSync(ignorePath, `${existing && !existing.endsWith("\n") ? "\n" : ""}${pattern}\n`, "utf8");
+	}
+	pi.appendEntry("pi-annotate-gitignore", {
+		sessionId: ctx.sessionManager.getSessionId(),
+		journalPath: path,
+		gitignorePath: ignorePath,
+		choice: choice ?? "cancelled",
+	});
+	ctx.ui.notify(choice === options[0]
+		? `Journal added to .gitignore: ${repoPath}. To undo, remove its rule from ${ignorePath}.`
+		: `Journal ${choice ? "kept visible to Git" : "ignore choice cancelled"}; .gitignore unchanged. Change: /annotate-settings auto on.`, "info");
 }
 
 interface AnnotateSettings {
@@ -140,6 +153,10 @@ function autoAnnotateEnabled(ctx: Pick<ExtensionContext, "sessionManager">): boo
 	return annotateSettings(ctx)?.autoAnnotate === true;
 }
 
+function notifyRecordingChoice(ctx: ExtensionContext, enabled: boolean): void {
+	if (ctx.hasUI) ctx.ui.notify(`Auto-saving ${enabled ? "on" : "off"} (this session). Change: /annotate-settings auto ${enabled ? "off" : "on"}.`, "info");
+}
+
 export default function (pi: ExtensionAPI) {
 	pi.on("input", async (event, ctx) => {
 		if (event.source === "extension") return { action: "continue" };
@@ -157,7 +174,8 @@ export default function (pi: ExtensionAPI) {
 				sessionId: ctx.sessionManager.getSessionId(),
 				autoAnnotate: accepted,
 			} satisfies AnnotateSettings);
-			if (accepted) await offerGitignore(ctx);
+			notifyRecordingChoice(ctx, accepted);
+			if (accepted) await offerGitignore(pi, ctx);
 		}
 		if (!autoAnnotateEnabled(ctx)) return { action: "continue" };
 		const metadata: UserMessageRecordMetadata = {
@@ -200,8 +218,8 @@ export default function (pi: ExtensionAPI) {
 					sessionId: ctx.sessionManager.getSessionId(),
 					autoAnnotate: choice === "auto on",
 				} satisfies AnnotateSettings);
-				ctx.ui.notify(`Auto-annotate ${choice === "auto on" ? "on" : "off"} (saved for this session).`, "info");
-				if (choice === "auto on") await offerGitignore(ctx);
+				notifyRecordingChoice(ctx, choice === "auto on");
+				if (choice === "auto on") await offerGitignore(pi, ctx);
 			} catch (error) {
 				ctx.ui.notify(`Could not save annotation settings: ${error instanceof Error ? error.message : String(error)}`, "error");
 			}
