@@ -1,5 +1,25 @@
 # Editable extension setup
 
+## Saved entry format
+
+Auto-saved messages contain only a timestamp, readable extension/session attribution, and the quoted input:
+
+```md
+## 2026-09-01T00:02:00.000Z · User message
+
+Saved by pi-annotated-journal · session `session-1`
+
+> first line
+> second line
+> third line
+```
+
+No encoded metadata or wrapper comments are added. Comments inside the submitted message remain part of its quote. Existing journals are unchanged. `/reload` loads the updated writer in a running session.
+
+Verification: `npm run check` in `slop/readable-journal-verification.log`: `tests 23`, `pass 23`, `fail 0`. The input-handler test checks readable session attribution and absence of added comments; the writer test checks exact output with blank lines, nested quotes, and a source comment. The existing annotation exporter test also passes.
+
+-- PI/OpenAI
+
 - One checkout: `/home/code/dev/pi-ext/pi-annotated-journal` (resolves to `/workspace/pi-ext/pi-annotated-journal`). Pi's package settings already load this local directory.
 - The former `~/.pi/agent/git/github.com/wassname/pi-annotated-journal` checkout is now only a symlink to that directory. Both commit histories, lockfile changes, and task state were preserved.
 - Edit `index.ts`, then `/reload`. No build or npm reinstall is needed.

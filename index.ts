@@ -179,12 +179,8 @@ export default function (pi: ExtensionAPI) {
 		}
 		if (!autoAnnotateEnabled(ctx)) return { action: "continue" };
 		const metadata: UserMessageRecordMetadata = {
-			schema: 1,
 			createdAt: new Date().toISOString(),
 			sessionId: ctx.sessionManager.getSessionId(),
-			sessionFile: ctx.sessionManager.getSessionFile() ?? null,
-			cwd: ctx.cwd,
-			source: event.source,
 		};
 		const path = journalPath(ctx);
 		appendJournal(path, buildUserMessageRecord(metadata, event.text));

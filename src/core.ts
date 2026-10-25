@@ -27,12 +27,8 @@ export type JournalRecordMetadata = {
 };
 
 export type UserMessageRecordMetadata = {
-	schema: 1;
 	createdAt: string;
 	sessionId: string;
-	sessionFile: string | null;
-	cwd: string;
-	source: "interactive" | "rpc";
 };
 
 const TEMPLATE_HEADING = "# Annotate";
@@ -41,8 +37,6 @@ const BODY_START = "<!-- pi-annotate-body -->";
 const BODY_END = "<!-- /pi-annotate-body -->";
 const RECORD_PREFIX = "<!-- pi-annotate-record:";
 const RECORD_END = "<!-- /pi-annotate-record -->";
-const USER_MESSAGE_PREFIX = "<!-- pi-user-message:";
-const USER_MESSAGE_END = "<!-- /pi-user-message -->";
 const LEGACY_MESSAGE_PREFIX = "<!-- pi-annotate-message:";
 
 function encodeMetadata(value: unknown): string {
@@ -207,9 +201,9 @@ export function buildUserMessageRecord(metadata: UserMessageRecordMetadata, text
 	return [
 		`## ${metadata.createdAt} · User message`,
 		"",
-		`${USER_MESSAGE_PREFIX}${encodeMetadata(metadata)} -->`,
+		`Saved by pi-annotated-journal · session \`${metadata.sessionId}\``,
+		"",
 		quoteMarkdown(text),
-		USER_MESSAGE_END,
 		"",
 	].join("\n");
 }

@@ -184,6 +184,8 @@ test("records only long unquoted input when enabled for this session", async () 
 		assert.deepEqual(await input({ text: "first line\r\nsecond line\r\n> quote\r\nthird line", source: "interactive" }, ctx), { action: "continue" });
 		const journal = readFileSync(journalPath, "utf8");
 		assert.match(journal, /## .* · User message/);
+		assert.ok(journal.includes(`Saved by pi-annotated-journal · session \`${session.getSessionId()}\``));
+		assert.doesNotMatch(journal, /<!--/);
 		assert.match(journal, /> first line\n> second line\n> > quote\n> third line/);
 		assert.deepEqual(notifications, [`long user message appended to ${journalPath}`]);
 		assert.doesNotMatch(journal, /long user message appended/);
