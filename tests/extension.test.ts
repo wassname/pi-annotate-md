@@ -87,7 +87,7 @@ test("first long message asks once, saves only with consent, and remembers the a
 });
 
 test("gitignore is a separate opt-in and ignores only the journal", async (t) => {
-	for (const scenario of ["accept", "decline", "cancel", "already ignored", "outside repository", "headless", "symlink cwd"]) {
+	for (const scenario of ["accept", "decline", "cancel", "already ignored", "already tracked", "outside repository", "headless", "symlink cwd"]) {
 		await t.test(scenario, async () => {
 			const directory = mkdtempSync(join(tmpdir(), "pi-annotate-ignore-"));
 			const repo = join(directory, "repo");
@@ -102,6 +102,11 @@ test("gitignore is a separate opt-in and ignores only the journal", async (t) =>
 				symlinkSync(repo, cwd, "dir");
 			}
 			const journalPath = scenario === "outside repository" ? join(directory, "outside.md") : join(cwd, "notes", "journal[1].md");
+			if (scenario === "already tracked") {
+				mkdirSync(join(repo, "notes"));
+				writeFileSync(journalPath, "old\n");
+				execFileSync("git", ["-C", repo, "--literal-pathspecs", "add", "notes/journal[1].md"]);
+			}
 			const previousJournal = process.env.PI_ANNOTATE_JOURNAL;
 			process.env.PI_ANNOTATE_JOURNAL = journalPath;
 			try {
@@ -126,6 +131,8 @@ test("gitignore is a separate opt-in and ignores only the journal", async (t) =>
 				if (scenario === "accept") await extension.input({ text: "first\nlong\nmessage", source: "interactive" }, ctx);
 				else await extension.commands.get("annotate-settings")!.handler("auto on", ctx);
 				const shouldAsk = ["accept", "decline", "cancel", "symlink cwd"].includes(scenario);
+				if (scenario === "already tracked") assert.ok(extension.notifications.some(message => message.includes("already tracked by Git: notes/journal[1].md")));
+				if (scenario === "already ignored") assert.ok(extension.notifications.some(message => message.includes("already ignored by Git")));
 				assert.equal(ignorePrompts, shouldAsk ? 1 : 0);
 				const shouldAppend = scenario === "accept" || scenario === "symlink cwd";
 				assert.equal(readFileSync(ignorePath, "utf8"), shouldAppend ? `${existing}\n/notes/journal\\[1\\].md\n` : existing);

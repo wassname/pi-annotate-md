@@ -105,6 +105,13 @@ async function offerGitignore(pi: ExtensionAPI, ctx: ExtensionContext): Promise<
 	const repoRoot = root.stdout.trim();
 	const repoPath = relative(repoRoot, canonicalPath);
 	if (repoPath === ".." || repoPath.startsWith("../") || isAbsolute(repoPath)) return;
+	const tracked = spawnSync("git", ["-C", repoRoot, "--literal-pathspecs", "ls-files", "--", repoPath], { encoding: "utf8" });
+	if (tracked.error) throw tracked.error;
+	if (tracked.status !== 0) throw new Error(tracked.stderr);
+	if (tracked.stdout.trim()) {
+		ctx.ui.notify(`Journal already tracked by Git: ${repoPath}. New entries will show in git diff. To stop tracking: git rm --cached -- ${repoPath}, then add it to .gitignore.`, "info");
+		return;
+	}
 	const ignored = spawnSync("git", ["-C", repoRoot, "check-ignore", "--quiet", "--", repoPath]);
 	if (ignored.error) throw ignored.error;
 	if (ignored.status === 0) {

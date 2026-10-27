@@ -22,7 +22,7 @@ pi install npm:@wassname2/pi-annotated-journal
 
 Paste them into Pi or an editor, add unquoted notes, then submit them. Automatic recording is off for new sessions. The first message with at least 3 non-empty, unquoted lines asks whether to enable it. Accepting saves that message and future long messages to `docs/human_journal.md` as quoted `User message` records. Declining or dismissing stops further prompts in that session.
 
-When you enable recording in a Git repository, Pi also asks whether to add the journal to the repository's `.gitignore`. `Ignore journal` is selected by default; Enter confirms, while Esc leaves `.gitignore` unchanged. Already ignored journals do not prompt; already tracked files remain tracked.
+When you enable recording in a Git repository, Pi also asks whether to add the journal to the repository's `.gitignore`. `Ignore journal` is selected by default; Enter confirms, while Esc leaves `.gitignore` unchanged. If the journal is already ignored or already tracked by Git, Pi does not ask; it shows a one-line reminder instead (for a tracked journal, how to stop tracking it).
 
 Saved entries contain a timestamp, a `Saved by pi-annotated-journal · session` line, and your quoted message. No encoded metadata or HTML wrapper comments are added.
 
