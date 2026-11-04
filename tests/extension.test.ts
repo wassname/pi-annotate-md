@@ -39,11 +39,12 @@ test("first long message asks once, saves only with consent, and remembers the a
 				let resolveConfirmation!: (accepted: boolean) => void;
 				const ui = {
 					...extension.ctx.ui,
-					confirm: async (title: string, message: string) => {
+					confirm: async (title: string, message: string, opts?: { timeout?: number }) => {
 						prompts += 1;
 						assert.match(title, /save long user messages/);
 						assert.ok(message.includes(journalPath));
 						assert.match(message, /only to this session/);
+						assert.ok(opts?.timeout, "an unanswered dialog must time out");
 						return new Promise<boolean>((resolve) => { resolveConfirmation = resolve; });
 					},
 				};
@@ -55,11 +56,13 @@ test("first long message asks once, saves only with consent, and remembers the a
 				await extension.input({ text: "headless\nlong\nmessage", source: "rpc" }, { ...ctx, hasUI: false });
 				assert.equal(prompts, 0);
 				assert.equal(session.getEntries().length, 0);
-				const pending = extension.input({ text: "first\nlong\nmessage", source: "interactive" }, ctx);
+				// The message goes through while the dialog is still open; a second one waits with it.
+				assert.deepEqual(await extension.input({ text: "first\nlong\nmessage", source: "interactive" }, ctx), { action: "continue" });
+				assert.deepEqual(await extension.input({ text: "during\nthe\ndialog", source: "interactive" }, ctx), { action: "continue" });
 				assert.equal(prompts, 1);
 				assert.equal(existsSync(journalPath), false);
 				resolveConfirmation(accepted);
-				assert.deepEqual(await pending, { action: "continue" });
+				await new Promise(resolve => setTimeout(resolve, 20));
 				assert.ok(extension.notifications.some(message => message.includes(`Auto-saving ${accepted ? "on" : "off"}`) && message.includes("/annotate-settings")));
 				assert.equal(existsSync(journalPath), accepted);
 				const reloaded = loadExtension(() => session, directory);
@@ -69,14 +72,15 @@ test("first long message asks once, saves only with consent, and remembers the a
 				if (accepted) {
 					const journal = readFileSync(journalPath, "utf8");
 					assert.match(journal, /> first\n> long\n> message/);
+					assert.match(journal, /> during\n> the\n> dialog/);
 					assert.match(journal, /> second\n> long\n> message/);
-					assert.equal((journal.match(/· User message/g) ?? []).length, 2);
+					assert.equal((journal.match(/· User message/g) ?? []).length, 3);
 				}
 				session = SessionManager.inMemory(directory);
-				const newSession = reloaded.input({ text: "new\nsession\nmessage", source: "interactive" }, { ...reloaded.ctx, ui });
+				await reloaded.input({ text: "new\nsession\nmessage", source: "interactive" }, { ...reloaded.ctx, ui });
 				assert.equal(prompts, 2);
 				resolveConfirmation(false);
-				await newSession;
+				await new Promise(resolve => setTimeout(resolve, 20));
 			} finally {
 				if (previousJournal === undefined) delete process.env.PI_ANNOTATE_JOURNAL;
 				else process.env.PI_ANNOTATE_JOURNAL = previousJournal;
@@ -128,7 +132,10 @@ test("gitignore is a separate opt-in and ignores only the journal", async (t) =>
 						},
 					},
 				};
-				if (scenario === "accept") await extension.input({ text: "first\nlong\nmessage", source: "interactive" }, ctx);
+				if (scenario === "accept") {
+					await extension.input({ text: "first\nlong\nmessage", source: "interactive" }, ctx);
+					await new Promise(resolve => setTimeout(resolve, 20));
+				}
 				else await extension.commands.get("annotate-settings")!.handler("auto on", ctx);
 				const shouldAsk = ["accept", "decline", "cancel", "symlink cwd"].includes(scenario);
 				if (scenario === "already tracked") assert.ok(extension.notifications.some(message => message.includes("already tracked by Git: notes/journal[1].md")));

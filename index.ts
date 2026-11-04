@@ -124,6 +124,7 @@ async function offerGitignore(pi: ExtensionAPI, ctx: ExtensionContext): Promise<
 	const choice = await ctx.ui.select(
 		`Add ${repoPath} to ${ignorePath}?\nAlready tracked files remain tracked. Esc leaves .gitignore unchanged.`,
 		options,
+		{ timeout: DIALOG_TIMEOUT_MS },
 	);
 	if (choice === options[0]) {
 		const existing = existsSync(ignorePath) ? readFileSync(ignorePath, "utf8") : "";
@@ -164,7 +165,41 @@ function notifyRecordingChoice(ctx: ExtensionContext, enabled: boolean): void {
 	if (ctx.hasUI) ctx.ui.notify(`Auto-saving ${enabled ? "on" : "off"} (this session). Change: /annotate-settings auto ${enabled ? "off" : "on"}.`, "info");
 }
 
+// Unanswered dialogs count as "no", so an agent-driven pane is never stuck on them.
+const DIALOG_TIMEOUT_MS = 60_000;
+
+function saveMessage(ctx: ExtensionContext, text: string): void {
+	const metadata: UserMessageRecordMetadata = {
+		createdAt: new Date().toISOString(),
+		sessionId: ctx.sessionManager.getSessionId(),
+	};
+	const path = journalPath(ctx);
+	appendJournal(path, buildUserMessageRecord(metadata, text));
+	if (ctx.hasUI) ctx.ui.notify(`long user message appended to ${path}`, "info");
+}
+
 export default function (pi: ExtensionAPI) {
+	// Long messages sent while the consent dialog is open; saved if the user accepts.
+	let held: string[] | undefined;
+
+	async function askConsent(ctx: ExtensionContext): Promise<void> {
+		const accepted = await ctx.ui.confirm(
+			"Automatically save long user messages?",
+			`Save this message and future messages with at least 3 non-empty, non-quoted lines to ${journalPath(ctx)}? This applies only to this session. Change it with /annotate-settings.`,
+			{ timeout: DIALOG_TIMEOUT_MS },
+		);
+		pi.appendEntry("pi-annotate-settings", {
+			sessionId: ctx.sessionManager.getSessionId(),
+			autoAnnotate: accepted,
+		} satisfies AnnotateSettings);
+		notifyRecordingChoice(ctx, accepted);
+		const texts = held!;
+		held = undefined;
+		if (!accepted) return;
+		await offerGitignore(pi, ctx);
+		for (const text of texts) saveMessage(ctx, text);
+	}
+
 	pi.on("input", async (event, ctx) => {
 		if (event.source === "extension") return { action: "continue" };
 		const unquotedLines = event.text.split(/\r?\n/).filter((line) => {
@@ -172,26 +207,16 @@ export default function (pi: ExtensionAPI) {
 			return trimmed.length > 0 && !trimmed.startsWith(">");
 		});
 		if (unquotedLines.length < 3) return { action: "continue" };
+		// Never hold the message for the dialog: ask in the background and save afterwards.
 		if (!annotateSettings(ctx) && ctx.hasUI) {
-			const accepted = await ctx.ui.confirm(
-				"Automatically save long user messages?",
-				`Save this message and future messages with at least 3 non-empty, non-quoted lines to ${journalPath(ctx)}? This applies only to this session. Change it with /annotate-settings.`,
-			);
-			pi.appendEntry("pi-annotate-settings", {
-				sessionId: ctx.sessionManager.getSessionId(),
-				autoAnnotate: accepted,
-			} satisfies AnnotateSettings);
-			notifyRecordingChoice(ctx, accepted);
-			if (accepted) await offerGitignore(pi, ctx);
+			if (held) held.push(event.text);
+			else {
+				held = [event.text];
+				askConsent(ctx).catch((error) => { held = undefined; ctx.ui.notify(`pi-annotate: ${String(error)}`, "error"); });
+			}
+			return { action: "continue" };
 		}
-		if (!autoAnnotateEnabled(ctx)) return { action: "continue" };
-		const metadata: UserMessageRecordMetadata = {
-			createdAt: new Date().toISOString(),
-			sessionId: ctx.sessionManager.getSessionId(),
-		};
-		const path = journalPath(ctx);
-		appendJournal(path, buildUserMessageRecord(metadata, event.text));
-		if (ctx.hasUI) ctx.ui.notify(`long user message appended to ${path}`, "info");
+		if (autoAnnotateEnabled(ctx)) saveMessage(ctx, event.text);
 		return { action: "continue" };
 	});
 
