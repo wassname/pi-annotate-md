@@ -206,7 +206,7 @@ test("records only long unquoted input when enabled for this session", async () 
 		assert.deepEqual(await input({ text: "rpc first\nrpc second\nrpc third\nrpc fourth", source: "rpc" }, { ...ctx, hasUI: false }), { action: "continue" });
 		assert.match(readFileSync(journalPath, "utf8"), /> rpc fourth/);
 		assert.equal(notifications.length, 1);
-		assert.equal(commands.get("annotate")?.description, "Copy the last N user/assistant messages as Markdown quotes for annotation (default: 6)");
+		assert.match(commands.get("annotate")!.description, /\.pi\/last_msg\.md/);
 		await command.handler("auto off", ctx);
 		const before = readFileSync(journalPath, "utf8");
 		const reloaded = loadExtension(() => session, directory);

@@ -1,5 +1,21 @@
 # Editable extension setup
 
+## File-based annotation scratchpad
+
+Implemented `/annotate` as a read-only multi-message picker using Pi's native tree rows. Enter uses the highlighted message when nothing is checked; Space toggles multiple messages. `/annotate N` preselects the last N messages on the current branch. Picking never navigates the session or edits its labels.
+
+The fixed `.pi/last_msg.md` file keeps normal Markdown, headed `## Annotate assistant message` (or user), with `> an:` prompts. The person opens this path once in their own editor. On OK, Pi reads the saved file, appends its exact text to `.pi/last_msg_log.md`, and fills Pi's input without sending it. No clipboard, editor launch, watcher, or annotation parser is involved.
+
+Canceled edited drafts can be resumed after reload or archived before replacement. Empty, unchanged, and already-logged contents are not pasted. Nonempty Pi input is preserved. Private files receive ignore rules; already-tracked files are rejected before writing. The scratchpad is shared per working directory: concurrent annotation interactions across sessions are not supported.
+
+Verification:
+- `npm run check`: `tests 36`, `pass 36`, `fail 0` in `slop/annotation-verification.log`. Tests drive the actual native tree component and real SessionManager with a simulated UI, then inspect disk files, input text, labels, and Git's ignore decisions. Failure cases include a draft changed during selection and an unwritable log.
+- An isolated, offline installed Pi runtime loaded `index.ts`; RPC `get_commands` returned `success: true` and registered `annotate` and `annotate-settings`. The captured response is in `slop/annotation-host-load.log`. I deliberately stopped that child runtime after the response (SIGTERM / 143). Its unrelated warning was `No models match pattern "anthropic-2/claude-opus-5-5"`; no model request was made.
+- `git diff --check` passed. Existing auto-recording and old journal-export tests still pass. The new scratchpad log is plain Markdown, not the old exporter's encoded journal format.
+- Not yet verified by a person in their running Pi/editor. Use `/reload`, then `/annotate`. The README changes are an uncommitted draft for review.
+
+-- PI/gpt-6.1-sol
+
 ## Saved entry format
 
 Auto-saved messages contain only a timestamp, readable extension/session attribution, and the quoted input:

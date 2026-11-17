@@ -1,81 +1,15 @@
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, SessionEntry } from "@earendil-works/pi-coding-agent";
-import { execFileSync, spawnSync } from "node:child_process";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import {
-	buildAnnotationTemplate,
 	buildUserMessageRecord,
 	journalHeader,
-	type ConversationMessage,
-	type ConversationRole,
 	type UserMessageRecordMetadata,
 } from "./src/core.ts";
+import { registerAnnotateCommand } from "./src/annotate.ts";
 
-const DEFAULT_MESSAGE_COUNT = 6;
-const MAX_MESSAGE_COUNT = 100;
 const DEFAULT_JOURNAL_PATH = "docs/human_journal.md";
-
-function parseCount(args: string): number | null {
-	const value = args.trim();
-	if (!value) return DEFAULT_MESSAGE_COUNT;
-	if (!/^\d+$/.test(value)) return null;
-	const count = Number(value);
-	return Number.isSafeInteger(count) && count >= 1 && count <= MAX_MESSAGE_COUNT ? count : null;
-}
-
-function textFromContent(content: unknown): string {
-	if (typeof content === "string") return content.trimEnd();
-	if (!Array.isArray(content)) return "";
-	return content
-		.map((part) => {
-			if (!part || typeof part !== "object" || !("type" in part)) return "";
-			if (part.type === "text" && "text" in part && typeof part.text === "string") return part.text;
-			if (part.type === "image") return "[image omitted from annotation view]";
-			return "";
-		})
-		.filter(Boolean)
-		.join("\n\n")
-		.trimEnd();
-}
-
-function conversationMessage(entry: SessionEntry): ConversationMessage | null {
-	if (entry.type !== "message") return null;
-	const message = entry.message;
-	if (message.role !== "user" && message.role !== "assistant") return null;
-	const text = textFromContent(message.content);
-	if (!text.trim()) return null;
-	return {
-		id: entry.id,
-		role: message.role as ConversationRole,
-		timestamp: entry.timestamp,
-		text,
-	};
-}
-
-function recentConversation(ctx: ExtensionCommandContext, count: number): ConversationMessage[] {
-	return ctx.sessionManager
-		.getBranch()
-		.map(conversationMessage)
-		.filter((message): message is ConversationMessage => message !== null)
-		.slice(-count);
-}
-
-function copyToClipboard(text: string, useOsc52: boolean): void {
-	const errors: string[] = [];
-	for (const [command, args] of [["pbcopy", []], ["wl-copy", []], ["xclip", ["-selection", "clipboard"]]] as Array<[string, string[]]>) {
-		try {
-			execFileSync(command, args, { input: text, stdio: ["pipe", "ignore", "pipe"] });
-			return;
-		} catch (error) {
-			errors.push(`${command}: ${error instanceof Error ? error.message : String(error)}`);
-		}
-	}
-	if (useOsc52 && process.stdout.isTTY) {
-		process.stdout.write(`\u001b]52;c;${Buffer.from(text).toString("base64")}\u0007`);
-		return;
-	}
-	throw new Error(`No clipboard command succeeded. ${errors.join("; ")}`);
-}
 
 function journalPath(ctx: { cwd: string }): string {
 	const configured = process.env.PI_ANNOTATE_JOURNAL?.trim() || DEFAULT_JOURNAL_PATH;
@@ -254,28 +188,5 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 
-	pi.registerCommand("annotate", {
-		description: "Copy the last N user/assistant messages as Markdown quotes for annotation (default: 6)",
-		handler: async (args, ctx) => {
-			const count = parseCount(args);
-			if (count === null) {
-				ctx.ui.notify(`Usage: /annotate [N], /annotate-settings. N is 1-${MAX_MESSAGE_COUNT}.`, "warning");
-				return;
-			}
-
-			await ctx.waitForIdle();
-			const messages = recentConversation(ctx, count);
-			if (messages.length === 0) {
-				ctx.ui.notify("No user or assistant text found in the current branch.", "warning");
-				return;
-			}
-
-			try {
-				copyToClipboard(buildAnnotationTemplate(messages), ctx.mode === "tui");
-				ctx.ui.notify("Copied to clipboard. Paste here or in an editor to annotate.", "info");
-			} catch (error) {
-				ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
-			}
-		},
-	});
+	registerAnnotateCommand(pi);
 }
