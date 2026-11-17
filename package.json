@@ -1,7 +1,7 @@
 {
   "name": "@wassname2/pi-annotated-journal",
   "version": "0.1.2",
-  "description": "Annotate Pi messages in a Markdown scratchpad and optionally journal long user messages",
+  "description": "Annotate Pi messages in a Markdown scratchpad from your own editor",
   "type": "module",
   "license": "MIT",
   "keywords": [
@@ -9,8 +9,7 @@
     "pi",
     "pi-extension",
     "annotation",
-    "human-in-the-loop",
-    "supervision"
+    "human-in-the-loop"
   ],
   "pi": {
     "extensions": [

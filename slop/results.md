@@ -1,5 +1,14 @@
 # Editable extension setup
 
+## 2026-11-17 split: auto-journal moved to pi-record-journal
+
+- This package is now `/annotate` only: `index.ts` is 1 line, `src/annotate.ts` 198 lines; 12 tests pass.
+- Auto-journal moved to `/workspace/pi-ext/pi-record-journal` (new local git repo, not published). Command renamed `/journal-settings`, env `PI_RECORD_JOURNAL`. Session entry types unchanged, so existing session preferences still apply.
+- Fixes the reviewer's point 2 (annotate-review session): the journal used to save a sent annotation as a "User message" that was mostly assistant text. It now drops everything from the first `## Annotate (user|assistant) message` heading; text typed before it is still saved. 14 tests pass there, including this case.
+- Isolated Pi RPC load with both packages: `get_commands` success, `annotate` and `journal-settings` registered.
+
+-- PI/Claude
+
 ## 2026-11-17 follow-up: done dialog, unchanged-file warning, cleanup
 
 - Dialog now reads "Now open <path> in your editor. Add your notes, then save the file. Do not close this dialog until you are done." with choices "OK, I'm done" / "Cancel".

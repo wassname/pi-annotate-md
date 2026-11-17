@@ -10,7 +10,6 @@ pi install npm:@wassname2/pi-annotated-journal
 ```text
 /annotate       # choose messages to annotate
 /annotate 10    # preselect the last 10 messages
-/annotate-settings auto on|off   # also journal long user messages (this session)
 ```
 
 ## Workflow
@@ -72,15 +71,12 @@ If the file has not changed, Pi warns `File unchanged. Did you save it in your e
 |---|---|
 | `.pi/last_msg.md` | the scratchpad; the same path every time, so keep it open in your editor |
 | `.pi/last_msg_log.md` | each confirmed scratchpad, with time, session and source message IDs |
-| `docs/human_journal.md` | long user messages, only if `auto on` (path: `PI_ANNOTATE_JOURNAL`) |
 
 The `.pi/` files are added to `.pi/.gitignore`. If one is already tracked by Git, `/annotate` stops and tells you how to untrack it.
 
 Cancel keeps the scratchpad. Next time, `/annotate` offers to resume it, or to archive it to the log and start again. There is one scratchpad per working directory, so use one annotation at a time across sessions.
 
-## Automatic journal
-
-Off by default. The first message with at least 3 non-empty, unquoted lines asks whether to save long messages from this session to `docs/human_journal.md`. In a Git repository, Pi then offers to add the journal to `.gitignore`. Unanswered dialogs count as "no" after 60 s. The choice is stored in the session and survives `/reload` and resume; new sessions and forks start off.
+To also save your long user messages to a journal, see `pi-record-journal`. It leaves out `## Annotate … message` sections, which are already logged here.
 
 ## Development
 
