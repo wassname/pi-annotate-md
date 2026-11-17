@@ -1,6 +1,5 @@
 node_modules/
-.pi-subagents/
 *.tgz
 .pi/
-slop/*
-!slop/results.md
+slop/
+docs/human_journal.md

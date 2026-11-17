@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { initTheme, SessionManager } from "@earendil-works/pi-coding-agent";
-import { buildScratchpad, registerAnnotateCommand } from "../src/annotate.ts";
+import registerAnnotateCommand, { buildScratchpad } from "../index.ts";
 
 initTheme("dark", false);
 

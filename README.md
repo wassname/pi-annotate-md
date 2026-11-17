@@ -76,7 +76,7 @@ The `.pi/` files are added to `.pi/.gitignore`. If one is already tracked by Git
 
 Cancel keeps the scratchpad. Next time, `/annotate` offers to resume it, or to archive it to the log and start again. There is one scratchpad per working directory, so use one annotation at a time across sessions.
 
-To also save your long user messages to a journal, see `pi-record-journal`. It leaves out `## Annotate … message` sections, which are already logged here.
+To also save your long user messages to a journal, see [pi-record-journal](https://github.com/wassname/pi-record-journal). It leaves out `## Annotate … message` sections, which are already logged here.
 
 ## Development
 
