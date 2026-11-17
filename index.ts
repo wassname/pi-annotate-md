@@ -78,7 +78,7 @@ async function pickMessages(ctx: ExtensionCommandContext, messages: Conversation
 		if (!available.has(entry.id)) continue;
 		const label = ctx.sessionManager.getLabel(entry.id);
 		labels.set(entry.id, label ? ` ${label}` : "");
-		const node = { entry: { ...entry, parentId }, children: [], label: `[${selected.has(entry.id) ? "x" : " "}]${labels.get(entry.id)}` };
+		const node = { entry: { ...entry, parentId }, children: [], label: `${selected.has(entry.id) ? "x" : " "}${labels.get(entry.id)}` };
 		nodes.set(entry.id, node);
 		if (parentId === null) roots.push(node);
 		else nodes.get(parentId)!.children.push(node);
@@ -92,7 +92,7 @@ async function pickMessages(ctx: ExtensionCommandContext, messages: Conversation
 		return {
 			render(width: number) {
 				const title = `Annotate messages (${selected.size} selected)`;
-				const hint = "Space: toggle | Enter: use selection or highlighted message | Esc: cancel";
+				const hint = "Space toggle · Enter confirm · Esc cancel";
 				return [theme.fg("accent", title.slice(0, width)), ...list.render(width),
 					theme.fg("dim", hint.slice(0, width))];
 			},
@@ -107,7 +107,7 @@ async function pickMessages(ctx: ExtensionCommandContext, messages: Conversation
 					if (id) {
 						if (selected.has(id)) selected.delete(id);
 						else selected.add(id);
-						list.updateNodeLabel(id, `[${selected.has(id) ? "x" : " "}]${labels.get(id)}`);
+						list.updateNodeLabel(id, `${selected.has(id) ? "x" : " "}${labels.get(id)}`);
 					}
 				} else {
 					const navigation = ["tui.select.up", "tui.select.down", "tui.select.pageUp", "tui.select.pageDown", "app.tree.foldOrUp", "app.tree.unfoldOrDown"] as const;
