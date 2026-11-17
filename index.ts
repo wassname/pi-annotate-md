@@ -2,14 +2,10 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
-import {
-	buildUserMessageRecord,
-	journalHeader,
-	type UserMessageRecordMetadata,
-} from "./src/core.ts";
 import { registerAnnotateCommand } from "./src/annotate.ts";
 
 const DEFAULT_JOURNAL_PATH = "docs/human_journal.md";
+const JOURNAL_HEADER = "# Human supervision journal\n\nQuoted `User message` records are exact submitted prompts.\n";
 
 function journalPath(ctx: { cwd: string }): string {
 	const configured = process.env.PI_ANNOTATE_JOURNAL?.trim() || DEFAULT_JOURNAL_PATH;
@@ -19,7 +15,7 @@ function journalPath(ctx: { cwd: string }): string {
 function appendJournal(path: string, record: string): void {
 	mkdirSync(dirname(path), { recursive: true });
 	if (!existsSync(path)) {
-		writeFileSync(path, journalHeader(), { encoding: "utf8", mode: 0o600 });
+		writeFileSync(path, JOURNAL_HEADER, { encoding: "utf8", mode: 0o600 });
 	}
 	const existing = readFileSync(path, "utf8");
 	const separator = existing.length === 0 || existing.endsWith("\n\n") ? "" : existing.endsWith("\n") ? "\n" : "\n\n";
@@ -103,12 +99,9 @@ function notifyRecordingChoice(ctx: ExtensionContext, enabled: boolean): void {
 const DIALOG_TIMEOUT_MS = 60_000;
 
 function saveMessage(ctx: ExtensionContext, text: string): void {
-	const metadata: UserMessageRecordMetadata = {
-		createdAt: new Date().toISOString(),
-		sessionId: ctx.sessionManager.getSessionId(),
-	};
+	const quoted = text.replace(/\r\n/g, "\n").split("\n").map(line => line ? `> ${line}` : ">").join("\n");
 	const path = journalPath(ctx);
-	appendJournal(path, buildUserMessageRecord(metadata, text));
+	appendJournal(path, `## ${new Date().toISOString()} · User message\n\nSaved by pi-annotated-journal · session \`${ctx.sessionManager.getSessionId()}\`\n\n${quoted}\n`);
 	if (ctx.hasUI) ctx.ui.notify(`long user message appended to ${path}`, "info");
 }
 

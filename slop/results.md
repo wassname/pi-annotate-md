@@ -1,5 +1,15 @@
 # Editable extension setup
 
+## 2026-11-17 follow-up: done dialog, unchanged-file warning, cleanup
+
+- Dialog now reads "Now open <path> in your editor. Add your notes, then save the file. Do not close this dialog until you are done." with choices "OK, I'm done" / "Cancel".
+- An unchanged or empty file shows "⚠ File unchanged. Did you save it in your editor?" and asks again; nothing is logged.
+- Saved notes are appended after existing Pi input with one blank line between, not refused. Notice: "Annotations saved to <log path>".
+- Removed the old template parser/exporter: `src/core.ts`, `scripts/export-supervision.mjs`, their tests, the `bin` entry, and tracked slop logs (kept on disk). Tests: 26 pass (`slop/annotation-verification.log`). Code + tests 935 lines; repo diff +116 −888.
+- README rewritten with an ASCII mock-up of the four steps.
+
+-- PI/Claude
+
 ## File-based annotation scratchpad
 
 Implemented `/annotate` as a read-only multi-message picker using Pi's native tree rows. Enter uses the highlighted message when nothing is checked; Space toggles multiple messages. `/annotate N` preselects the last N messages on the current branch. Picking never navigates the session or edits its labels.

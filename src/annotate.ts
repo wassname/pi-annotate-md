@@ -2,7 +2,7 @@ import { TreeSelectorComponent, type ExtensionAPI, type ExtensionCommandContext,
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { ConversationMessage } from "./core.ts";
+type ConversationMessage = { id: string; role: "user" | "assistant"; text: string };
 
 const DRAFT_FILE = "last_msg.md";
 const LOG_FILE = "last_msg_log.md";
@@ -11,9 +11,8 @@ const STATE_TYPE = "pi-annotate-scratchpad";
 interface ScratchpadState {
 	sessionId: string;
 	path: string;
-	original: string;
+	text: string;
 	messageIds: string[];
-	loggedText?: string;
 }
 
 export function buildScratchpad(messages: ConversationMessage[]): string {
@@ -30,7 +29,7 @@ function conversationMessage(entry: SessionEntry): ConversationMessage | undefin
 		.flatMap(part => part.type === "text" ? [part.text] : part.type === "image" ? ["[image omitted]"] : [])
 		.join("\n\n");
 	if (!text.trim()) return;
-	return { id: entry.id, role: message.role, timestamp: entry.timestamp, text };
+	return { id: entry.id, role: message.role, text };
 }
 
 function scratchpadState(ctx: ExtensionCommandContext, path: string): ScratchpadState | undefined {
@@ -145,7 +144,7 @@ export function registerAnnotateCommand(pi: ExtensionAPI): void {
 				const path = resolve(ctx.cwd, ".pi", DRAFT_FILE);
 				let state = scratchpadState(ctx, path);
 				const previous = existsSync(path) ? readFileSync(path, "utf8") : undefined;
-				const pending = previous !== undefined && previous !== state?.original && previous !== state?.loggedText;
+				const pending = previous !== undefined && previous !== state?.text;
 				let resume = false;
 				if (pending) {
 					const choice = await ctx.ui.select(`Saved annotation draft: ${path}`, ["Resume saved draft", "Archive and replace", "Cancel"]);
@@ -168,26 +167,27 @@ export function registerAnnotateCommand(pi: ExtensionAPI): void {
 					if (!selected?.length) return;
 					if ((existsSync(path) ? readFileSync(path, "utf8") : undefined) !== previous) throw new Error("Scratchpad changed while choosing messages. Run /annotate again to resume it.");
 					if (pending && previous!.trim()) logScratchpad(ctx, previous!, state?.messageIds ?? [], true);
-					state = { sessionId: ctx.sessionManager.getSessionId(), path, original: buildScratchpad(selected), messageIds: selected.map(message => message.id) };
-					writeFileSync(path, state.original, { encoding: "utf8", mode: 0o600 });
+					state = { sessionId: ctx.sessionManager.getSessionId(), path, text: buildScratchpad(selected), messageIds: selected.map(message => message.id) };
+					writeFileSync(path, state.text, { encoding: "utf8", mode: 0o600 });
 					pi.appendEntry(STATE_TYPE, state);
 				}
-				const choice = await ctx.ui.select(`Edit and save ${path}\nKeep this file open in your editor. OK logs it and fills Pi's input; it does not send.`, ["OK", "Cancel"]);
-				if (choice !== "OK") return;
-				const edited = readFileSync(path, "utf8");
-				if (!edited.trim() || edited === state?.original || edited === state?.loggedText) {
-					ctx.ui.notify("No new annotation changes. Nothing logged or pasted.", "info");
-					return;
-				}
-				if (ctx.ui.getEditorText().trim()) {
-					ctx.ui.notify(`Pi's input is not empty. Draft kept at ${path}; clear the input and run /annotate again.`, "warning");
-					return;
+				let warning = "";
+				let edited: string;
+				while (true) {
+					const choice = await ctx.ui.select(
+						`${warning}Now open ${path} in your editor.\nAdd your notes, then save the file.\nDo not close this dialog until you are done.`,
+						["OK, I'm done", "Cancel"],
+					);
+					if (choice !== "OK, I'm done") return;
+					edited = readFileSync(path, "utf8");
+					if (edited.trim() && edited !== state?.text) break;
+					warning = edited.trim() ? "⚠ File unchanged. Did you save it in your editor?\n" : "⚠ File is empty.\n";
 				}
 				prepareFiles(ctx.cwd);
 				logScratchpad(ctx, edited, state?.messageIds ?? []);
-				pi.appendEntry(STATE_TYPE, { sessionId: ctx.sessionManager.getSessionId(), path, original: state?.original ?? "", messageIds: state?.messageIds ?? [], loggedText: edited } satisfies ScratchpadState);
-				ctx.ui.setEditorText(edited);
-				ctx.ui.notify(`Annotation logged to ${resolve(ctx.cwd, ".pi", LOG_FILE)}. Press Enter to send.`, "info");
+				pi.appendEntry(STATE_TYPE, { sessionId: ctx.sessionManager.getSessionId(), path, text: edited, messageIds: state?.messageIds ?? [] } satisfies ScratchpadState);
+				ctx.ui.setEditorText([ctx.ui.getEditorText().trimEnd(), edited].filter(Boolean).join("\n\n"));
+				ctx.ui.notify(`Annotations saved to ${resolve(ctx.cwd, ".pi", LOG_FILE)}\nAdded to your input. Press Enter to send.`, "info");
 			} catch (error) {
 				ctx.ui.notify(`Could not annotate: ${error instanceof Error ? error.message : String(error)}`, "error");
 			} finally {

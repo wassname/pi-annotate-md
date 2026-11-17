@@ -96,13 +96,13 @@ test("native tree multi-selection writes chronological messages, then logs and p
 	let edited = "";
 	h.setSelect(async (title, choices) => {
 		assert.ok(title.includes(h.path));
-		assert.deepEqual(choices, ["OK", "Cancel"]);
+		assert.deepEqual(choices, ["OK, I'm done", "Cancel"]);
 		const draft = readFileSync(h.path, "utf8");
 		assert.match(draft, /First answer[\s\S]*Second answer/);
 		assert.doesNotMatch(draft, /first question|second question/);
 		edited = draft.replace("> an: ", "> an: Check this.\n> Please explain.") + "\n> an: agree\n";
 		writeFileSync(h.path, edited);
-		return "OK";
+		return "OK, I'm done";
 	});
 	await h.run();
 	assert.equal(h.editor, edited);
@@ -117,7 +117,7 @@ test("native tree multi-selection writes chronological messages, then logs and p
 		assert.equal(spawnSync("git", ["-C", directory, "check-ignore", "--quiet", "--", file]).status, 0);
 	}
 	assert.equal(h.notices.length, 1);
-	assert.match(h.notices[0], /Press Enter to send/);
+	assert.match(h.notices[0], /^Annotations saved to/);
 });
 
 test("Enter selects the highlighted assistant; arrows can select an earlier message without changing branches", async t => {
@@ -134,21 +134,23 @@ test("Enter selects the highlighted assistant; arrows can select an earlier mess
 	assert.equal(h.session.getBranch().some(entry => entry.id === current), true);
 });
 
-test("cancel and unchanged files do not log or alter Pi input; canceled edits resume after reload", async t => {
+test("an unsaved file warns and asks again; cancel does not log or alter Pi input; canceled edits resume after reload", async t => {
 	const directory = withDirectory(t);
 	const h = harness(directory);
 	assistant(h.session, "Original answer");
-	h.setSelect(async () => "OK");
+	const titles: string[] = [];
+	h.setSelect(async title => { titles.push(title); return titles.length === 1 ? "OK, I'm done" : "Cancel"; });
 	await h.run();
+	assert.equal(titles.length, 2);
+	assert.match(titles[1], /File unchanged\. Did you save it/);
 	assert.equal(existsSync(h.log), false);
 	assert.equal(h.editor, "");
-	assert.match(h.notices.at(-1)!, /No new annotation/);
 	h.setSelect(async () => { writeFileSync(h.path, readFileSync(h.path, "utf8") + "\n> an: saved note\n"); return "Cancel"; });
 	await h.run();
 	const edited = readFileSync(h.path, "utf8");
 	assert.equal(existsSync(h.log), false);
 	const reloaded = harness(directory, h.session);
-	reloaded.setSelect(async (_title, choices) => choices.includes("Resume saved draft") ? "Resume saved draft" : "OK");
+	reloaded.setSelect(async (_title, choices) => choices.includes("Resume saved draft") ? "Resume saved draft" : "OK, I'm done");
 	await reloaded.run();
 	assert.equal(reloaded.pickCalls, 0);
 	assert.equal(reloaded.editor, edited);
@@ -174,20 +176,16 @@ test("fixed path is reused; edited leftovers require consent and are archived be
 	assert.match(readFileSync(h.log, "utf8"), /Archived scratchpad/);
 });
 
-test("foreign scratchpads are not overwritten, and a nonempty Pi input is preserved", async t => {
+test("foreign scratchpads are resumed, and saved notes are appended after existing Pi input", async t => {
 	const h = harness(withDirectory(t));
 	mkdirSync(join(h.ctx.cwd, ".pi"));
 	writeFileSync(h.path, "Recovered answer\n\n> an: recover this\n");
 	h.editor = "unsent prompt";
-	h.setSelect(async (_title, choices) => choices.includes("Resume saved draft") ? "Resume saved draft" : "OK");
+	h.setSelect(async (_title, choices) => choices.includes("Resume saved draft") ? "Resume saved draft" : "OK, I'm done");
 	await h.run();
 	assert.equal(h.pickCalls, 0);
-	assert.equal(h.editor, "unsent prompt");
-	assert.equal(existsSync(h.log), false);
-	assert.match(h.notices.at(-1)!, /input is not empty/);
-	h.editor = "";
-	await h.run();
-	assert.match(h.editor, /> an: recover this/);
+	assert.equal(h.editor, "unsent prompt\n\nRecovered answer\n\n> an: recover this\n");
+	assert.match(h.notices.at(-1)!, /^Annotations saved to .*last_msg_log\.md/);
 });
 
 test("numeric arguments preselect messages; invalid arguments and non-TUI modes do not write", async t => {
@@ -245,14 +243,14 @@ test("log failures retain the saved draft and do not prefill or mark it complete
 		edited = readFileSync(h.path, "utf8").replace("> an: ", "> an: retain me");
 		writeFileSync(h.path, edited);
 		mkdirSync(h.log);
-		return "OK";
+		return "OK, I'm done";
 	});
 	await h.run();
 	assert.equal(h.editor, "");
 	assert.equal(readFileSync(h.path, "utf8"), edited);
 	assert.match(h.notices.at(-1)!, /Could not annotate/);
 	rmSync(h.log, { recursive: true });
-	h.setSelect(async (_title, choices) => choices.includes("Resume saved draft") ? "Resume saved draft" : "OK");
+	h.setSelect(async (_title, choices) => choices.includes("Resume saved draft") ? "Resume saved draft" : "OK, I'm done");
 	await h.run();
 	assert.equal(h.editor, edited);
 	assert.ok(readFileSync(h.log, "utf8").includes(edited));

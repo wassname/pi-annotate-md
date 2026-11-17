@@ -1,45 +1,92 @@
 # @wassname2/pi-annotated-journal
 
-Copy recent Pi messages as Markdown quotes, add notes, then send them back to Pi.
+<!-- Drafted by PI/OpenAI and PI/Claude. -->
+Annotate Pi messages in your own editor, then send your notes back to Pi.
 
 ```bash
 pi install npm:@wassname2/pi-annotated-journal
 ```
 
 ```text
-/annotate       # last 6 user/assistant messages
-/annotate 10    # last 10
-/annotate-settings auto on   # record long user messages in this session
-/annotate-settings auto off
+/annotate       # choose messages to annotate
+/annotate 10    # preselect the last 10 messages
+/annotate-settings auto on|off   # also journal long user messages (this session)
 ```
 
-`/annotate` copies blockquoted messages such as:
+## Workflow
+
+**1. In Pi, choose messages.** ↑/↓ move, Space toggles, Enter confirms. With nothing toggled, Enter uses the highlighted message.
 
 ```text
-> Assistant: the answer
-> more text
+┌ Annotate messages (2 selected) ─────────────────────────────┐
+│   [ ] user: why does the loss plateau?                      │
+│ → [x] assistant: The LR schedule decays too early…          │
+│   [ ] user: try cosine instead                              │
+│   [x] assistant: Cosine run finished; val loss 2.31…        │
+│ Space: toggle | Enter: use selection | Esc: cancel          │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-Paste them into Pi or an editor, add unquoted notes, then submit them. Automatic recording is off for new sessions. The first message with at least 3 non-empty, unquoted lines asks whether to enable it. Accepting saves that message and future long messages to `docs/human_journal.md` as quoted `User message` records. Declining or dismissing stops further prompts in that session.
+**2. Pi writes the scratchpad and waits.** Leave this dialog open.
 
-When you enable recording in a Git repository, Pi also asks whether to add the journal to the repository's `.gitignore`. `Ignore journal` is selected by default; Enter confirms, while Esc leaves `.gitignore` unchanged. If the journal is already ignored or already tracked by Git, Pi does not ask; it shows a one-line reminder instead (for a tracked journal, how to stop tracking it).
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ Now open /repo/.pi/last_msg.md in your editor.              │
+│ Add your notes, then save the file.                         │
+│ Do not close this dialog until you are done.                │
+│ → OK, I'm done                                              │
+│   Cancel                                                    │
+└─────────────────────────────────────────────────────────────┘
+```
 
-Saved entries contain a timestamp, a `Saved by pi-annotated-journal · session` line, and your quoted message. No encoded metadata or HTML wrapper comments are added.
+**3. In your editor, write after each `> an:` and save.** The original Markdown is kept.
 
-Pi shows a short receipt for each saving and ignore choice, including how to change it. Choices are also saved in Pi's timestamped session log.
+```markdown
+## Annotate assistant message
 
-The preference is saved in the session and survives resume and `/reload`. New sessions and forks start with recording off; the old global `annotate.json` preference is ignored.
+The LR schedule decays too early…
 
-`PI_ANNOTATE_JOURNAL` sets the journal path. Relative paths resolve from Pi's working directory.
+> an: why not warmup first?
 
-<!-- PI -->
+---
+
+## Annotate assistant message
+
+Cosine run finished; val loss 2.31…
+
+> an: compare against the step-decay run
+```
+
+**4. In Pi, choose "OK, I'm done".** Pi adds the saved file to your input (after any text already there) and does not send it. Press Enter to send.
+
+```text
+Annotations saved to /repo/.pi/last_msg_log.md
+Added to your input. Press Enter to send.
+```
+
+If the file has not changed, Pi warns `File unchanged. Did you save it in your editor?` and asks again. Pi reads only the saved file, so unsaved editor changes are not included.
+
+## Files
+
+| File | Contents |
+|---|---|
+| `.pi/last_msg.md` | the scratchpad; the same path every time, so keep it open in your editor |
+| `.pi/last_msg_log.md` | each confirmed scratchpad, with time, session and source message IDs |
+| `docs/human_journal.md` | long user messages, only if `auto on` (path: `PI_ANNOTATE_JOURNAL`) |
+
+The `.pi/` files are added to `.pi/.gitignore`. If one is already tracked by Git, `/annotate` stops and tells you how to untrack it.
+
+Cancel keeps the scratchpad. Next time, `/annotate` offers to resume it, or to archive it to the log and start again. There is one scratchpad per working directory, so use one annotation at a time across sessions.
+
+## Automatic journal
+
+Off by default. The first message with at least 3 non-empty, unquoted lines asks whether to save long messages from this session to `docs/human_journal.md`. In a Git repository, Pi then offers to add the journal to `.gitignore`. Unanswered dialogs count as "no" after 60 s. The choice is stored in the session and survives `/reload` and resume; new sessions and forks start off.
 
 ## Development
-
-Edit this checkout directly. For a persistent editable install, use `pi install /absolute/path/to/pi-annotated-journal`, then `/reload` after edits. No build is needed.
 
 ```bash
 npm ci --ignore-scripts
 npm run check
 ```
 
+For an editable install: `pi install /absolute/path/to/pi-annotated-journal`, then `/reload` after edits.
