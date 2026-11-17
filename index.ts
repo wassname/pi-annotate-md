@@ -4,8 +4,8 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { resolve } from "node:path";
 type ConversationMessage = { id: string; role: "user" | "assistant"; text: string };
 
-const DRAFT_FILE = "last_msg.md";
-const LOG_FILE = "last_msg_log.md";
+const DRAFT_FILE = "annotate.md";
+const LOG_FILE = "annotate_log.md";
 const STATE_TYPE = "pi-annotate-scratchpad";
 
 interface ScratchpadState {
@@ -59,7 +59,7 @@ function logScratchpad(ctx: ExtensionCommandContext, text: string, messageIds: s
 	const sources = messageIds.length ? `Source messages: ${messageIds.map(id => `\`${id}\``).join(", ")}\n\n` : "";
 	appendFileSync(path,
 		`## ${new Date().toISOString()} · ${archived ? "Archived scratchpad" : "Annotation"}\n\n` +
-		`Saved by pi-annotated-journal · session \`${ctx.sessionManager.getSessionId()}\`\n\n` +
+		`Saved by pi-annotate-md · session \`${ctx.sessionManager.getSessionId()}\`\n\n` +
 		sources + text + (text.endsWith("\n") ? "\n" : "\n\n"), "utf8");
 }
 
@@ -123,7 +123,7 @@ async function pickMessages(ctx: ExtensionCommandContext, messages: Conversation
 export default function registerAnnotateCommand(pi: ExtensionAPI): void {
 	let active = false;
 	pi.registerCommand("annotate", {
-		description: "Choose messages to annotate in .pi/last_msg.md, then paste the saved draft into Pi",
+		description: "Choose messages to annotate in .pi/annotate.md, then paste the saved draft into Pi",
 		handler: async (args, ctx) => {
 			if (ctx.mode !== "tui") {
 				ctx.ui.notify("/annotate requires interactive TUI mode.", "warning");

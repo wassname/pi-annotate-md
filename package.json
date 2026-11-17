@@ -1,6 +1,6 @@
 {
-  "name": "@wassname2/pi-annotated-journal",
-  "version": "0.2.0",
+  "name": "@wassname2/pi-annotate-md",
+  "version": "0.3.0",
   "description": "Annotate Pi messages in a Markdown scratchpad from your own editor",
   "type": "module",
   "license": "MIT",
@@ -46,10 +46,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wassname/pi-annotated-journal.git"
+    "url": "git+https://github.com/wassname/pi-annotate-md.git"
   },
-  "homepage": "https://github.com/wassname/pi-annotated-journal#readme",
+  "homepage": "https://github.com/wassname/pi-annotate-md#readme",
   "bugs": {
-    "url": "https://github.com/wassname/pi-annotated-journal/issues"
+    "url": "https://github.com/wassname/pi-annotate-md/issues"
   }
 }

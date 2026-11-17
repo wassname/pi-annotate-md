@@ -1,16 +1,16 @@
-# @wassname2/pi-annotated-journal
+# @wassname2/pi-annotate-md
 
 <!-- Drafted by PI/OpenAI and PI/Claude. -->
 Reply to Pi's answers line by line, in your own editor, instead of retyping quotes in Pi's input box.
 
-`/annotate` copies the messages you pick into `.pi/last_msg.md`, with an empty `> an:` line after each one. You write your notes under the lines they are about, save, and Pi puts the whole file in its input for you to send.
+`/annotate` copies the messages you pick into `.pi/annotate.md`, with an empty `> an:` line after each one. You write your notes under the lines they are about, save, and Pi puts the whole file in its input for you to send.
 
 - **Always the same file.** Keep it open in VS Code, vim, Zed or any other editor and alt-tab between it and Pi.
 - **A real editor.** Long answers get Markdown preview with LaTeX and Mermaid, search, folding and your own keybindings, and you can comment on the exact line you mean.
 - **Nothing sent by surprise.** Pi fills its input but does not send. Each confirmed file is also kept in a log.
 
 ```bash
-pi install npm:@wassname2/pi-annotated-journal
+pi install npm:@wassname2/pi-annotate-md
 ```
 
 ```text
@@ -37,7 +37,7 @@ Space toggle · Enter confirm · Esc cancel
 ```text
 ──────────────────────────────────────────────────────────────────
 
- Now open /repo/.pi/last_msg.md in your editor.
+ Now open /repo/.pi/annotate.md in your editor.
  Add your notes, then save the file.
  Do not close this dialog until you are done.
 
@@ -70,7 +70,7 @@ Cosine run finished; val loss 2.31…
 **4. In Pi, choose "OK, I'm done".** Pi adds the saved file to your input (after any text already there) and does not send it. Press Enter to send.
 
 ```text
-Annotations saved to /repo/.pi/last_msg_log.md
+Annotations saved to /repo/.pi/annotate_log.md
 Added to your input. Press Enter to send.
 ```
 
@@ -80,8 +80,8 @@ If the file has not changed, Pi warns `File unchanged. Did you save it in your e
 
 | File | Contents |
 |---|---|
-| `.pi/last_msg.md` | the scratchpad; the same path every time, so keep it open in your editor |
-| `.pi/last_msg_log.md` | each confirmed scratchpad, with time, session and source message IDs |
+| `.pi/annotate.md` | the scratchpad; the same path every time, so keep it open in your editor |
+| `.pi/annotate_log.md` | each confirmed scratchpad, with time, session and source message IDs |
 
 The `.pi/` files are added to `.pi/.gitignore`. If one is already tracked by Git, `/annotate` stops and tells you how to untrack it.
 
@@ -96,4 +96,4 @@ npm ci --ignore-scripts
 npm run check
 ```
 
-For an editable install: `pi install /absolute/path/to/pi-annotated-journal`, then `/reload` after edits.
+For an editable install: `pi install /absolute/path/to/pi-annotate-md`, then `/reload` after edits.

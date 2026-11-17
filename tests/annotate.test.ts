@@ -24,8 +24,8 @@ function harness(directory: string, session = SessionManager.inMemory(directory)
 		appendEntry(type: string, data: unknown) { session.appendCustomEntry(type, data); },
 		sendUserMessage() { assert.fail("Annotations must not submit a message"); },
 	} as never);
-	const path = join(directory, ".pi", "last_msg.md");
-	const log = join(directory, ".pi", "last_msg_log.md");
+	const path = join(directory, ".pi", "annotate.md");
+	const log = join(directory, ".pi", "annotate_log.md");
 	let editor = "";
 	let keys = ["\r"];
 	let pickCalls = 0;
@@ -113,7 +113,7 @@ test("native tree multi-selection writes chronological messages, then logs and p
 	assert.ok(log.includes(h.session.getSessionId()));
 	assert.equal(h.session.getLabel(a), "keep this label");
 	assert.equal(h.session.getBranch().some(entry => entry.id === leaf), true);
-	for (const file of [".pi/last_msg.md", ".pi/last_msg_log.md"]) {
+	for (const file of [".pi/annotate.md", ".pi/annotate_log.md"]) {
 		assert.equal(spawnSync("git", ["-C", directory, "check-ignore", "--quiet", "--", file]).status, 0);
 	}
 	assert.equal(h.notices.length, 1);
@@ -185,7 +185,7 @@ test("foreign scratchpads are resumed, and saved notes are appended after existi
 	await h.run();
 	assert.equal(h.pickCalls, 0);
 	assert.equal(h.editor, "unsent prompt\n\nRecovered answer\n\n> an: recover this\n");
-	assert.match(h.notices.at(-1)!, /^Annotations saved to .*last_msg_log\.md/);
+	assert.match(h.notices.at(-1)!, /^Annotations saved to .*annotate_log\.md/);
 });
 
 test("numeric arguments preselect messages; invalid arguments and non-TUI modes do not write", async t => {
@@ -212,7 +212,7 @@ test("tracked files are rejected before private content is written", async t => 
 	const h = harness(directory);
 	mkdirSync(join(directory, ".pi"));
 	writeFileSync(h.path, "tracked content");
-	execFileSync("git", ["-C", directory, "add", ".pi/last_msg.md"]);
+	execFileSync("git", ["-C", directory, "add", ".pi/annotate.md"]);
 	assistant(h.session, "private answer");
 	h.setSelect(async () => "Archive and replace");
 	await h.run();
